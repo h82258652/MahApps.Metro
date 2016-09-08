@@ -2,12 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.ComponentModel;
+using System.Globalization;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using MahApps.Metro;
 using MetroDemo.Models;
 using System.Windows.Input;
+using MahApps.Metro.Controls;
+using MahApps.Metro.Controls.Dialogs;
+using MetroDemo.ExampleViews;
 
 namespace MetroDemo
 {
@@ -44,11 +50,13 @@ namespace MetroDemo
 
     public class MainWindowViewModel : INotifyPropertyChanged, IDataErrorInfo
     {
+        private readonly IDialogCoordinator _dialogCoordinator;
         int? _integerGreater10Property;
         private bool _animateOnPositionChange = true;
 
-        public MainWindowViewModel()
+        public MainWindowViewModel(IDialogCoordinator dialogCoordinator)
         {
+            _dialogCoordinator = dialogCoordinator;
             SampleData.Seed();
 
             // create accent color menu items for the demo
@@ -81,6 +89,8 @@ namespace MetroDemo
 
 
             BrushResources = FindBrushResources();
+
+            CultureInfos = CultureInfo.GetCultures(CultureTypes.InstalledWin32Cultures).ToList();
         }
 
         public string Title { get; set; }
@@ -89,6 +99,7 @@ namespace MetroDemo
         public List<Artist> Artists { get; set; }
         public List<AccentColorMenuData> AccentColors { get; set; }
         public List<AppThemeMenuData> AppThemes { get; set; }
+        public List<CultureInfo> CultureInfos { get; set; }
 
         public int? IntegerGreater10Property
         {
@@ -155,29 +166,23 @@ namespace MetroDemo
         {
             get
             {
-                return this.textBoxButtonCmd ?? (this.textBoxButtonCmd = new TextBoxButtonCommand());
-            }
-        }
-
-        public class TextBoxButtonCommand : ICommand
-        {
-            public bool CanExecute(object parameter)
-            {
-                return true;
-            }
-
-            public event EventHandler CanExecuteChanged;
-
-            public void Execute(object parameter)
-            {
-                if (parameter is TextBox)
+                return this.textBoxButtonCmd ?? (this.textBoxButtonCmd = new SimpleCommand
                 {
-                    MessageBox.Show("TextBox Button was clicked!" + Environment.NewLine + "Text: " + ((TextBox)parameter).Text);
-                }
-                else if (parameter is PasswordBox)
-                {
-                    MessageBox.Show("PasswordBox Button was clicked!" + Environment.NewLine + "Text: " + ((PasswordBox)parameter).Password);
-                }
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = async x =>
+                    {
+                        if (x is TextBox)
+                        {
+                            await ((MetroWindow) Application.Current.MainWindow).ShowMessageAsync("TextBox Button was clicked!",
+                                                                                                    string.Format("Text: {0}", ((TextBox) x).Text));
+                        }
+                        else if (x is PasswordBox)
+                        {
+                            await ((MetroWindow) Application.Current.MainWindow).ShowMessageAsync("PasswordBox Button was clicked!",
+                                                                                                    string.Format("Password: {0}", ((PasswordBox) x).Password));
+                        }
+                    }
+                });
             }
         }
 
@@ -187,25 +192,18 @@ namespace MetroDemo
         {
             get
             {
-                return this.textBoxButtonCmdWithParameter ?? (this.textBoxButtonCmdWithParameter = new TextBoxButtonCommandWithIntParameter());
-            }
-        }
-
-        public class TextBoxButtonCommandWithIntParameter : ICommand
-        {
-            public bool CanExecute(object parameter)
-            {
-                return true;
-            }
-
-            public event EventHandler CanExecuteChanged;
-
-            public void Execute(object parameter)
-            {
-                if (parameter is String)
+                return this.textBoxButtonCmdWithParameter ?? (this.textBoxButtonCmdWithParameter = new SimpleCommand
                 {
-                    MessageBox.Show("TextBox Button was clicked with parameter!" + Environment.NewLine + "Text: " + parameter);
-                }
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = async x =>
+                    {
+                        if (x is String)
+                        {
+                            await ((MetroWindow) Application.Current.MainWindow).ShowMessageAsync("TextBox Button with parameter was clicked!",
+                                                                                                  string.Format("Parameter: {0}", x));
+                        }
+                    }
+                });
             }
         }
 
@@ -243,38 +241,133 @@ namespace MetroDemo
 
         public string Error { get { return string.Empty; } }
 
-        public ICommand SingleCloseTabCommand { get { return new ExampleSingleTabCloseCommand(); } }
+        private ICommand singleCloseTabCommand;
 
-        public class ExampleSingleTabCloseCommand : ICommand
+        public ICommand SingleCloseTabCommand
         {
-            public bool CanExecute(object parameter)
+            get
             {
-                return true;
-            }
-
-            public event EventHandler CanExecuteChanged;
-
-            public void Execute(object parameter)
-            {
-                System.Windows.MessageBox.Show("You are now closing the '" + parameter + "' tab!");
+                return this.singleCloseTabCommand ?? (this.singleCloseTabCommand = new SimpleCommand
+                {
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = async x =>
+                    {
+                        await ((MetroWindow) Application.Current.MainWindow).ShowMessageAsync("Closing tab!", string.Format("You are now closing the '{0}' tab", x));
+                    }
+                });
             }
         }
 
-        public ICommand NeverCloseTabCommand { get { return new AlwaysInvalidCloseCommand(); } }
+        private ICommand neverCloseTabCommand;
 
-        public class AlwaysInvalidCloseCommand : ICommand
+        public ICommand NeverCloseTabCommand
         {
-            public bool CanExecute(object parameter)
+            get { return this.neverCloseTabCommand ?? (this.neverCloseTabCommand = new SimpleCommand { CanExecuteDelegate = x => false }); }
+        }
+
+
+        private ICommand showInputDialogCommand;
+
+        public ICommand ShowInputDialogCommand
+        {
+            get
             {
-                return false;
+                return this.showInputDialogCommand ?? (this.showInputDialogCommand = new SimpleCommand
+                {
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = x =>
+                    {
+                        _dialogCoordinator.ShowInputAsync(this, "From a VM", "This dialog was shown from a VM, without knowledge of Window").ContinueWith(t => Console.WriteLine(t.Result));
+                    }
+                });
             }
+        }
 
-            public event EventHandler CanExecuteChanged;
+        private ICommand showLoginDialogCommand;
 
-            public void Execute(object parameter)
+        public ICommand ShowLoginDialogCommand
+        {
+            get
             {
-
+                return this.showLoginDialogCommand ?? (this.showLoginDialogCommand = new SimpleCommand
+                {
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = x =>
+                    {
+                        _dialogCoordinator.ShowLoginAsync(this, "Login from a VM", "This login dialog was shown from a VM, so you can be all MVVM.").ContinueWith(t => Console.WriteLine(t.Result));
+                    }
+                });
             }
+        }
+
+        private ICommand showMessageDialogCommand;
+
+        public ICommand ShowMessageDialogCommand
+        {
+            get
+            {
+                return this.showMessageDialogCommand ?? (this.showMessageDialogCommand = new SimpleCommand
+                {
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = x =>
+                    {
+                        _dialogCoordinator.ShowMessageAsync(this, "Message from VM", "MVVM based messages!").ContinueWith(t => Console.WriteLine(t.Result));
+                    }
+                });
+            }
+        }
+
+        private ICommand showProgressDialogCommand;
+
+        public ICommand ShowProgressDialogCommand
+        {
+            get
+            {
+                return this.showProgressDialogCommand ?? (this.showProgressDialogCommand = new SimpleCommand
+                {
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = x => RunProgressFromVm()
+                });
+            }
+        }
+
+        private async void RunProgressFromVm()
+        {
+            var controller = await _dialogCoordinator.ShowProgressAsync(this, "Progress from VM", "Progressing all the things, wait 3 seconds");
+            controller.SetIndeterminate();
+
+            await TaskEx.Delay(3000);
+
+            await controller.CloseAsync();
+        }
+        
+
+        private ICommand showCustomDialogCommand;
+
+        public ICommand ShowCustomDialogCommand
+        {
+            get
+            {
+                return this.showCustomDialogCommand ?? (this.showCustomDialogCommand = new SimpleCommand
+                {
+                    CanExecuteDelegate = x => true,
+                    ExecuteDelegate = x => RunCustomFromVm()                    
+                });
+            }
+        }
+
+        private async void RunCustomFromVm()
+        {
+            var customDialog = new CustomDialog() { Title = "Custom Dialog" };
+
+            var customDialogExampleContent = new CustomDialogExampleContent(instance =>
+            {
+                _dialogCoordinator.HideMetroDialogAsync(this, customDialog);
+                System.Diagnostics.Debug.WriteLine(instance.FirstName);
+            });
+            customDialog.Content = new CustomDialogExample { DataContext = customDialogExampleContent};            
+
+            await _dialogCoordinator.ShowMetroDialogAsync(this, customDialog);            
         }
 
         public IEnumerable<string> BrushResources { get; private set; }

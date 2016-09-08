@@ -10,6 +10,9 @@ using MahApps.Metro.Controls.Dialogs;
 using MahApps.Metro.Native;
 using System.Windows.Shapes;
 using System.Collections.Generic;
+using System.Reflection;
+using System.Windows.Controls.Primitives;
+using System.Windows.Threading;
 
 namespace MahApps.Metro.Controls
 {
@@ -19,25 +22,29 @@ namespace MahApps.Metro.Controls
     [TemplatePart(Name = PART_Icon, Type = typeof(UIElement))]
     [TemplatePart(Name = PART_TitleBar, Type = typeof(UIElement))]
     [TemplatePart(Name = PART_WindowTitleBackground, Type = typeof(UIElement))]
+    [TemplatePart(Name = PART_WindowTitleThumb, Type = typeof(Thumb))]
     [TemplatePart(Name = PART_LeftWindowCommands, Type = typeof(WindowCommands))]
     [TemplatePart(Name = PART_RightWindowCommands, Type = typeof(WindowCommands))]
     [TemplatePart(Name = PART_WindowButtonCommands, Type = typeof(WindowButtonCommands))]
     [TemplatePart(Name = PART_OverlayBox, Type = typeof(Grid))]
-    [TemplatePart(Name = PART_MetroDialogContainer, Type = typeof(Grid))]
+    [TemplatePart(Name = PART_MetroActiveDialogContainer, Type = typeof(Grid))]
+    [TemplatePart(Name = PART_MetroInactiveDialogsContainer, Type = typeof(Grid))]
     [TemplatePart(Name = PART_FlyoutModal, Type = typeof(Rectangle))]
     public class MetroWindow : Window
     {
         private const string PART_Icon = "PART_Icon";
         private const string PART_TitleBar = "PART_TitleBar";
         private const string PART_WindowTitleBackground = "PART_WindowTitleBackground";
+        private const string PART_WindowTitleThumb = "PART_WindowTitleThumb";
         private const string PART_LeftWindowCommands = "PART_LeftWindowCommands";
         private const string PART_RightWindowCommands = "PART_RightWindowCommands";
         private const string PART_WindowButtonCommands = "PART_WindowButtonCommands";
         private const string PART_OverlayBox = "PART_OverlayBox";
-        private const string PART_MetroDialogContainer = "PART_MetroDialogContainer";
+        private const string PART_MetroActiveDialogContainer = "PART_MetroActiveDialogContainer";
+        private const string PART_MetroInactiveDialogsContainer = "PART_MetroInactiveDialogsContainer";
         private const string PART_FlyoutModal = "PART_FlyoutModal";
 
-        public static readonly DependencyProperty ShowIconOnTitleBarProperty = DependencyProperty.Register("ShowIconOnTitleBar", typeof(bool), typeof(MetroWindow), new PropertyMetadata(true));
+        public static readonly DependencyProperty ShowIconOnTitleBarProperty = DependencyProperty.Register("ShowIconOnTitleBar", typeof(bool), typeof(MetroWindow), new PropertyMetadata(true, OnShowIconOnTitleBarPropertyChangedCallback));
         public static readonly DependencyProperty IconEdgeModeProperty = DependencyProperty.Register("IconEdgeMode", typeof(EdgeMode), typeof(MetroWindow), new PropertyMetadata(EdgeMode.Aliased));
         public static readonly DependencyProperty IconBitmapScalingModeProperty = DependencyProperty.Register("IconBitmapScalingMode", typeof(BitmapScalingMode), typeof(MetroWindow), new PropertyMetadata(BitmapScalingMode.HighQuality));
         public static readonly DependencyProperty ShowTitleBarProperty = DependencyProperty.Register("ShowTitleBar", typeof(bool), typeof(MetroWindow), new PropertyMetadata(true, OnShowTitleBarPropertyChangedCallback, OnShowTitleBarCoerceValueCallback));
@@ -54,6 +61,7 @@ namespace MahApps.Metro.Controls
 
         public static readonly DependencyProperty TitlebarHeightProperty = DependencyProperty.Register("TitlebarHeight", typeof(int), typeof(MetroWindow), new PropertyMetadata(30, TitlebarHeightPropertyChangedCallback));
         public static readonly DependencyProperty TitleCapsProperty = DependencyProperty.Register("TitleCaps", typeof(bool), typeof(MetroWindow), new PropertyMetadata(true));
+        public static readonly DependencyProperty TitleAlignmentProperty = DependencyProperty.Register("TitleAlignment", typeof(HorizontalAlignment), typeof(MetroWindow), new PropertyMetadata(HorizontalAlignment.Stretch));
         public static readonly DependencyProperty SaveWindowPositionProperty = DependencyProperty.Register("SaveWindowPosition", typeof(bool), typeof(MetroWindow), new PropertyMetadata(false));
         public static readonly DependencyProperty WindowPlacementSettingsProperty = DependencyProperty.Register("WindowPlacementSettings", typeof(IWindowPlacementSettings), typeof(MetroWindow), new PropertyMetadata(null));
         public static readonly DependencyProperty TitleForegroundProperty = DependencyProperty.Register("TitleForeground", typeof(Brush), typeof(MetroWindow));
@@ -63,14 +71,14 @@ namespace MahApps.Metro.Controls
         public static readonly DependencyProperty MetroDialogOptionsProperty = DependencyProperty.Register("MetroDialogOptions", typeof(MetroDialogSettings), typeof(MetroWindow), new PropertyMetadata(new MetroDialogSettings()));
 
         public static readonly DependencyProperty WindowTitleBrushProperty = DependencyProperty.Register("WindowTitleBrush", typeof(Brush), typeof(MetroWindow), new PropertyMetadata(Brushes.Transparent));
-        public static readonly DependencyProperty GlowBrushProperty = DependencyProperty.Register("GlowBrush", typeof(SolidColorBrush), typeof(MetroWindow), new PropertyMetadata(null));
-        public static readonly DependencyProperty NonActiveGlowBrushProperty = DependencyProperty.Register("NonActiveGlowBrush", typeof(SolidColorBrush), typeof(MetroWindow), new PropertyMetadata(new SolidColorBrush(Color.FromRgb(153, 153, 153)))); // #999999
+        public static readonly DependencyProperty GlowBrushProperty = DependencyProperty.Register("GlowBrush", typeof(Brush), typeof(MetroWindow), new PropertyMetadata(null));
+        public static readonly DependencyProperty NonActiveGlowBrushProperty = DependencyProperty.Register("NonActiveGlowBrush", typeof(Brush), typeof(MetroWindow), new PropertyMetadata(new SolidColorBrush(Color.FromRgb(153, 153, 153)))); // #999999
         public static readonly DependencyProperty NonActiveBorderBrushProperty = DependencyProperty.Register("NonActiveBorderBrush", typeof(Brush), typeof(MetroWindow), new PropertyMetadata(Brushes.Gray));
         public static readonly DependencyProperty NonActiveWindowTitleBrushProperty = DependencyProperty.Register("NonActiveWindowTitleBrush", typeof(Brush), typeof(MetroWindow), new PropertyMetadata(Brushes.Gray));
 
         public static readonly DependencyProperty IconTemplateProperty = DependencyProperty.Register("IconTemplate", typeof(DataTemplate), typeof(MetroWindow), new PropertyMetadata(null));
         public static readonly DependencyProperty TitleTemplateProperty = DependencyProperty.Register("TitleTemplate", typeof(DataTemplate), typeof(MetroWindow), new PropertyMetadata(null));
-        
+
         public static readonly DependencyProperty LeftWindowCommandsProperty = DependencyProperty.Register("LeftWindowCommands", typeof(WindowCommands), typeof(MetroWindow), new PropertyMetadata(null));
         public static readonly DependencyProperty RightWindowCommandsProperty = DependencyProperty.Register("RightWindowCommands", typeof(WindowCommands), typeof(MetroWindow), new PropertyMetadata(null));
 
@@ -79,32 +87,38 @@ namespace MahApps.Metro.Controls
         public static readonly DependencyProperty WindowButtonCommandsOverlayBehaviorProperty = DependencyProperty.Register("WindowButtonCommandsOverlayBehavior", typeof(WindowCommandsOverlayBehavior), typeof(MetroWindow), new PropertyMetadata(WindowCommandsOverlayBehavior.Always));
         public static readonly DependencyProperty IconOverlayBehaviorProperty = DependencyProperty.Register("IconOverlayBehavior", typeof(WindowCommandsOverlayBehavior), typeof(MetroWindow), new PropertyMetadata(WindowCommandsOverlayBehavior.Never));
 
-        public static readonly DependencyProperty WindowMinButtonStyleProperty = DependencyProperty.Register("WindowMinButtonStyle", typeof(Style), typeof(MetroWindow), new PropertyMetadata(null));
-        public static readonly DependencyProperty WindowMaxButtonStyleProperty = DependencyProperty.Register("WindowMaxButtonStyle", typeof(Style), typeof(MetroWindow), new PropertyMetadata(null));
-        public static readonly DependencyProperty WindowCloseButtonStyleProperty = DependencyProperty.Register("WindowCloseButtonStyle", typeof(Style), typeof(MetroWindow), new PropertyMetadata(null));
-        
+        [Obsolete(@"This property will be deleted in the next release. You should use LightMinButtonStyle or DarkMinButtonStyle in WindowButtonCommands to override the style.")]
+        public static readonly DependencyProperty WindowMinButtonStyleProperty = DependencyProperty.Register("WindowMinButtonStyle", typeof(Style), typeof(MetroWindow), new PropertyMetadata(null, OnWindowButtonStyleChanged));
+        [Obsolete(@"This property will be deleted in the next release. You should use LightMaxButtonStyle or DarkMaxButtonStyle in WindowButtonCommands to override the style.")]
+        public static readonly DependencyProperty WindowMaxButtonStyleProperty = DependencyProperty.Register("WindowMaxButtonStyle", typeof(Style), typeof(MetroWindow), new PropertyMetadata(null, OnWindowButtonStyleChanged));
+        [Obsolete(@"This property will be deleted in the next release. You should use LightCloseButtonStyle or DarkCloseButtonStyle in WindowButtonCommands to override the style.")]
+        public static readonly DependencyProperty WindowCloseButtonStyleProperty = DependencyProperty.Register("WindowCloseButtonStyle", typeof(Style), typeof(MetroWindow), new PropertyMetadata(null, OnWindowButtonStyleChanged));
+
         public static readonly DependencyProperty UseNoneWindowStyleProperty = DependencyProperty.Register("UseNoneWindowStyle", typeof(bool), typeof(MetroWindow), new PropertyMetadata(false, OnUseNoneWindowStylePropertyChangedCallback));
         public static readonly DependencyProperty OverrideDefaultWindowCommandsBrushProperty = DependencyProperty.Register("OverrideDefaultWindowCommandsBrush", typeof(SolidColorBrush), typeof(MetroWindow));
 
-        public static readonly DependencyProperty EnableDWMDropShadowProperty = DependencyProperty.Register("EnableDWMDropShadow", typeof(bool), typeof(MetroWindow), new PropertyMetadata(false));
+        [Obsolete(@"This property will be deleted in the next release. You should use BorderThickness=""0"" and a GlowBrush=""Black"" to get a drop shadow around the Window.")]
+        public static readonly DependencyProperty EnableDWMDropShadowProperty = DependencyProperty.Register("EnableDWMDropShadow", typeof(bool), typeof(MetroWindow), new PropertyMetadata(false, OnEnableDWMDropShadowPropertyChangedCallback));
         public static readonly DependencyProperty IsWindowDraggableProperty = DependencyProperty.Register("IsWindowDraggable", typeof(bool), typeof(MetroWindow), new PropertyMetadata(true));
 
         UIElement icon;
         UIElement titleBar;
         UIElement titleBarBackground;
+        Thumb windowTitleThumb;
         internal ContentPresenter LeftWindowCommandsPresenter;
         internal ContentPresenter RightWindowCommandsPresenter;
         internal WindowButtonCommands WindowButtonCommands;
-        
+
         internal Grid overlayBox;
-        internal Grid metroDialogContainer;
+        internal Grid metroActiveDialogContainer;
+        internal Grid metroInactiveDialogContainer;
         private Storyboard overlayStoryboard;
         Rectangle flyoutModal;
 
         public static readonly RoutedEvent FlyoutsStatusChangedEvent = EventManager.RegisterRoutedEvent(
             "FlyoutsStatusChanged", RoutingStrategy.Bubble, typeof(RoutedEventHandler), typeof(MetroWindow));
 
-        // Provide CLR accessors for the event 
+        // Provide CLR accessors for the event
         public event RoutedEventHandler FlyoutsStatusChanged
         {
             add { AddHandler(FlyoutsStatusChangedEvent, value); }
@@ -112,7 +126,7 @@ namespace MahApps.Metro.Controls
         }
 
         /// <summary>
-        /// CleanWindow sets this so it has the correct default window commands brush
+        /// Allows easy handling of window commands brush. Theme is also applied based on this brush.
         /// </summary>
         public SolidColorBrush OverrideDefaultWindowCommandsBrush
         {
@@ -126,10 +140,27 @@ namespace MahApps.Metro.Controls
             set { SetValue(MetroDialogOptionsProperty, value); }
         }
 
+        [Obsolete(@"This property will be deleted in the next release. You should use BorderThickness=""0"" and a GlowBrush=""Black"" to get a drop shadow around the Window.")]
         public bool EnableDWMDropShadow
         {
             get { return (bool)GetValue(EnableDWMDropShadowProperty); }
             set { SetValue(EnableDWMDropShadowProperty, value); }
+        }
+
+        private static void OnEnableDWMDropShadowPropertyChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue != e.OldValue && (bool)e.NewValue)
+            {
+                var window = (MetroWindow)d;
+                window.UseDropShadow();
+            }
+        }
+
+        private void UseDropShadow()
+        {
+            this.BorderThickness = new Thickness(0);
+            this.BorderBrush = null;
+            this.GlowBrush = Brushes.Black;
         }
 
         public bool IsWindowDraggable
@@ -162,31 +193,37 @@ namespace MahApps.Metro.Controls
             set { SetValue(IconOverlayBehaviorProperty, value); }
         }
 
-        /// <summary>
-        /// Gets/sets the style for the MIN button style.
-        /// </summary>
+        [Obsolete(@"This property will be deleted in the next release. You should use LightMinButtonStyle or DarkMinButtonStyle in WindowButtonCommands to override the style.")]
         public Style WindowMinButtonStyle
         {
             get { return (Style)this.GetValue(WindowMinButtonStyleProperty); }
             set { SetValue(WindowMinButtonStyleProperty, value); }
         }
 
-        /// <summary>
-        /// Gets/sets the style for the MAX button style.
-        /// </summary>
+        [Obsolete(@"This property will be deleted in the next release. You should use LightMaxButtonStyle or DarkMaxButtonStyle in WindowButtonCommands to override the style.")]
         public Style WindowMaxButtonStyle
         {
             get { return (Style)this.GetValue(WindowMaxButtonStyleProperty); }
             set { SetValue(WindowMaxButtonStyleProperty, value); }
         }
 
-        /// <summary>
-        /// Gets/sets the style for the CLOSE button style.
-        /// </summary>
+        [Obsolete(@"This property will be deleted in the next release. You should use LightCloseButtonStyle or DarkCloseButtonStyle in WindowButtonCommands to override the style.")]
         public Style WindowCloseButtonStyle
         {
             get { return (Style)this.GetValue(WindowCloseButtonStyleProperty); }
             set { SetValue(WindowCloseButtonStyleProperty, value); }
+        }
+
+        public static void OnWindowButtonStyleChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue == e.OldValue)
+            {
+                return;
+            }
+
+            var window = (MetroWindow) d;
+            if (window.WindowButtonCommands != null)
+                window.WindowButtonCommands.ApplyTheme();
         }
 
         /// <summary>
@@ -299,6 +336,15 @@ namespace MahApps.Metro.Controls
         {
             get { return (bool)GetValue(ShowIconOnTitleBarProperty); }
             set { SetValue(ShowIconOnTitleBarProperty, value); }
+        }
+
+        private static void OnShowIconOnTitleBarPropertyChangedCallback(DependencyObject d, DependencyPropertyChangedEventArgs e)
+        {
+            var window = (MetroWindow)d;
+            if (e.NewValue != e.OldValue)
+            {
+                window.SetVisibiltyForIcon();
+            }
         }
 
         /// <summary>
@@ -419,7 +465,7 @@ namespace MahApps.Metro.Controls
             get { return (bool)GetValue(IsMinButtonEnabledProperty); }
             set { SetValue(IsMinButtonEnabledProperty, value); }
         }
-        
+
         /// <summary>
         /// Gets/sets if the max/restore button is enabled.
         /// </summary>
@@ -465,15 +511,21 @@ namespace MahApps.Metro.Controls
             }
         }
 
-        private void SetVisibiltyForAllTitleElements(bool visible)
+        private void SetVisibiltyForIcon()
         {
-            var newVisibility = visible && this.ShowTitleBar ? Visibility.Visible : Visibility.Collapsed;
             if (this.icon != null)
             {
-                var iconVisibility = this.IconOverlayBehavior.HasFlag(WindowCommandsOverlayBehavior.HiddenTitleBar) && !this.ShowTitleBar 
-                    || this.ShowIconOnTitleBar && this.ShowTitleBar ? Visibility.Visible : Visibility.Collapsed;
+                var isVisible = (this.IconOverlayBehavior.HasFlag(WindowCommandsOverlayBehavior.HiddenTitleBar) && !this.ShowTitleBar)
+                                || (this.ShowIconOnTitleBar && this.ShowTitleBar);
+                var iconVisibility = isVisible ? Visibility.Visible : Visibility.Collapsed;
                 this.icon.Visibility = iconVisibility;
             }
+        }
+
+        private void SetVisibiltyForAllTitleElements(bool visible)
+        {
+            this.SetVisibiltyForIcon();
+            var newVisibility = visible && this.ShowTitleBar ? Visibility.Visible : Visibility.Collapsed;
             if (this.titleBar != null)
             {
                 this.titleBar.Visibility = newVisibility;
@@ -494,7 +546,7 @@ namespace MahApps.Metro.Controls
             }
             if (this.WindowButtonCommands != null)
             {
-                this.WindowButtonCommands.Visibility = this.WindowButtonCommandsOverlayBehavior.HasFlag(WindowCommandsOverlayBehavior.HiddenTitleBar) ? 
+                this.WindowButtonCommands.Visibility = this.WindowButtonCommandsOverlayBehavior.HasFlag(WindowCommandsOverlayBehavior.HiddenTitleBar) ?
                     Visibility.Visible : newVisibility;
             }
 
@@ -511,6 +563,15 @@ namespace MahApps.Metro.Controls
         }
 
         /// <summary>
+        /// Gets/sets the title horizontal alignment.
+        /// </summary>
+        public HorizontalAlignment TitleAlignment
+        {
+            get { return (HorizontalAlignment)GetValue(TitleAlignmentProperty); }
+            set { SetValue(TitleAlignmentProperty, value); }
+        }
+
+        /// <summary>
         /// Gets/sets the brush used for the Window's title bar.
         /// </summary>
         public Brush WindowTitleBrush
@@ -522,18 +583,18 @@ namespace MahApps.Metro.Controls
         /// <summary>
         /// Gets/sets the brush used for the Window's glow.
         /// </summary>
-        public SolidColorBrush GlowBrush
+        public Brush GlowBrush
         {
-            get { return (SolidColorBrush)GetValue(GlowBrushProperty); }
+            get { return (Brush)GetValue(GlowBrushProperty); }
             set { SetValue(GlowBrushProperty, value); }
         }
 
         /// <summary>
         /// Gets/sets the brush used for the Window's non-active glow.
         /// </summary>
-        public SolidColorBrush NonActiveGlowBrush
+        public Brush NonActiveGlowBrush
         {
-            get { return (SolidColorBrush)GetValue(NonActiveGlowBrushProperty); }
+            get { return (Brush)GetValue(NonActiveGlowBrushProperty); }
             set { SetValue(NonActiveGlowBrushProperty, value); }
         }
 
@@ -571,14 +632,18 @@ namespace MahApps.Metro.Controls
         {
             if (overlayBox == null) throw new InvalidOperationException("OverlayBox can not be founded in this MetroWindow's template. Are you calling this before the window has loaded?");
 
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<object>();
+
             if (IsOverlayVisible() && overlayStoryboard == null)
-                return new System.Threading.Tasks.Task(() => { }); //No Task.FromResult in .NET 4.
+            {
+                //No Task.FromResult in .NET 4.
+                tcs.SetResult(null);
+                return tcs.Task;
+            }
 
             Dispatcher.VerifyAccess();
 
             overlayBox.Visibility = Visibility.Visible;
-
-            var tcs = new System.Threading.Tasks.TaskCompletionSource<object>();
 
             var sb = (Storyboard) this.Template.Resources["OverlayFastSemiFadeIn"];
 
@@ -613,12 +678,16 @@ namespace MahApps.Metro.Controls
         {
             if (overlayBox == null) throw new InvalidOperationException("OverlayBox can not be founded in this MetroWindow's template. Are you calling this before the window has loaded?");
 
+            var tcs = new System.Threading.Tasks.TaskCompletionSource<object>();
+
             if (overlayBox.Visibility == Visibility.Visible && overlayBox.Opacity == 0.0)
-                return new System.Threading.Tasks.Task(() => { }); //No Task.FromResult in .NET 4.
+            {
+                //No Task.FromResult in .NET 4.
+                tcs.SetResult(null);
+                return tcs.Task;
+            }
 
             Dispatcher.VerifyAccess();
-
-            var tcs = new System.Threading.Tasks.TaskCompletionSource<object>();
 
             var sb = (Storyboard) this.Template.Resources["OverlayFastSemiFadeOut"];
 
@@ -675,6 +744,11 @@ namespace MahApps.Metro.Controls
 
         private void MetroWindow_Loaded(object sender, RoutedEventArgs e)
         {
+            if (EnableDWMDropShadow)
+            {
+                this.UseDropShadow();
+            }
+
             if (this.WindowTransitionsEnabled)
             {
                 VisualStateManager.GoToState(this, "AfterLoaded", true);
@@ -695,7 +769,7 @@ namespace MahApps.Metro.Controls
 
         private void MetroWindow_SizeChanged(object sender, RoutedEventArgs e)
         {
-            // this all works only for CleanWindow style
+            // this all works only for centered title
 
             var titleBarGrid = (Grid)titleBar;
             var titleBarLabel = (Label)titleBarGrid.Children[0];
@@ -752,7 +826,7 @@ namespace MahApps.Metro.Controls
                 this.HandleWindowCommandsForFlyouts(flyouts);
             }
         }
-        
+
         private void FlyoutsPreviewMouseDown(object sender, MouseButtonEventArgs e)
         {
             var element = (e.OriginalSource as DependencyObject);
@@ -767,7 +841,7 @@ namespace MahApps.Metro.Controls
                     return;
                 }
             }
-            
+
             if (Flyouts.OverrideExternalCloseButton == null)
             {
                 foreach (var flyout in Flyouts.GetFlyouts().Where(x => x.IsOpen && x.ExternalCloseButton == e.ChangedButton && (!x.IsPinned || Flyouts.OverrideIsPinned)))
@@ -800,42 +874,58 @@ namespace MahApps.Metro.Controls
             if (RightWindowCommands == null)
                 RightWindowCommands = new WindowCommands();
 
+            LeftWindowCommands.ParentWindow = this;
+            RightWindowCommands.ParentWindow = this;
+
             LeftWindowCommandsPresenter = GetTemplateChild(PART_LeftWindowCommands) as ContentPresenter;
             RightWindowCommandsPresenter = GetTemplateChild(PART_RightWindowCommands) as ContentPresenter;
             WindowButtonCommands = GetTemplateChild(PART_WindowButtonCommands) as WindowButtonCommands;
 
+            if (WindowButtonCommands != null)
+            {
+                WindowButtonCommands.ParentWindow = this;
+            }
+
             overlayBox = GetTemplateChild(PART_OverlayBox) as Grid;
-            metroDialogContainer = GetTemplateChild(PART_MetroDialogContainer) as Grid;
-            flyoutModal = (Rectangle) GetTemplateChild(PART_FlyoutModal);
+            metroActiveDialogContainer = GetTemplateChild(PART_MetroActiveDialogContainer) as Grid;
+            metroInactiveDialogContainer = GetTemplateChild(PART_MetroInactiveDialogsContainer) as Grid;
+            flyoutModal = (Rectangle)GetTemplateChild(PART_FlyoutModal);
             flyoutModal.PreviewMouseDown += FlyoutsPreviewMouseDown;
             this.PreviewMouseDown += FlyoutsPreviewMouseDown;
 
             icon = GetTemplateChild(PART_Icon) as UIElement;
             titleBar = GetTemplateChild(PART_TitleBar) as UIElement;
             titleBarBackground = GetTemplateChild(PART_WindowTitleBackground) as UIElement;
+            this.windowTitleThumb = GetTemplateChild(PART_WindowTitleThumb) as Thumb;
 
             this.SetVisibiltyForAllTitleElements(this.TitlebarHeight > 0);
+        }
+
+        protected IntPtr CriticalHandle
+        {
+            get
+            {
+                var value = typeof(Window)
+                    .GetProperty("CriticalHandle", BindingFlags.NonPublic | BindingFlags.Instance)
+                    .GetValue(this, new object[0]);
+                return (IntPtr)value;
+            }
         }
 
         private void ClearWindowEvents()
         {
             // clear all event handlers first:
-            if (titleBarBackground != null)
+            if (this.windowTitleThumb != null)
             {
-                titleBarBackground.MouseDown -= TitleBarMouseDown;
-                titleBarBackground.MouseUp -= TitleBarMouseUp;
-            }
-            if (titleBar != null)
-            {
-                titleBar.MouseDown -= TitleBarMouseDown;
-                titleBar.MouseUp -= TitleBarMouseUp;
+                this.windowTitleThumb.PreviewMouseLeftButtonUp -= WindowTitleThumbOnPreviewMouseLeftButtonUp;
+                this.windowTitleThumb.DragDelta -= this.WindowTitleThumbMoveOnDragDelta;
+                this.windowTitleThumb.MouseDoubleClick -= this.WindowTitleThumbChangeWindowStateOnMouseDoubleClick;
+                this.windowTitleThumb.MouseRightButtonUp -= this.WindowTitleThumbSystemMenuOnMouseRightButtonUp;
             }
             if (icon != null)
             {
                 icon.MouseDown -= IconMouseDown;
             }
-            MouseDown -= TitleBarMouseDown;
-            MouseUp -= TitleBarMouseUp;
             SizeChanged -= MetroWindow_SizeChanged;
         }
 
@@ -850,30 +940,18 @@ namespace MahApps.Metro.Controls
                 icon.MouseDown += IconMouseDown;
             }
 
-            // handle mouse events for PART_WindowTitleBackground -> MetroWindow
-            if (titleBarBackground != null && titleBarBackground.Visibility == Visibility.Visible)
+            if (this.windowTitleThumb != null)
             {
-                titleBarBackground.MouseDown += TitleBarMouseDown;
-                titleBarBackground.MouseUp += TitleBarMouseUp;
+                this.windowTitleThumb.PreviewMouseLeftButtonUp += WindowTitleThumbOnPreviewMouseLeftButtonUp;
+                this.windowTitleThumb.DragDelta += this.WindowTitleThumbMoveOnDragDelta;
+                this.windowTitleThumb.MouseDoubleClick += this.WindowTitleThumbChangeWindowStateOnMouseDoubleClick;
+                this.windowTitleThumb.MouseRightButtonUp += this.WindowTitleThumbSystemMenuOnMouseRightButtonUp;
             }
 
-            // handle mouse events for PART_TitleBar -> MetroWindow and CleanWindow
-            if (titleBar != null && titleBar.Visibility == Visibility.Visible)
+            // handle size if we have a Grid for the title (e.g. clean window have a centered title)
+            if (titleBar != null && titleBar.GetType() == typeof(Grid))
             {
-                titleBar.MouseDown += TitleBarMouseDown;
-                titleBar.MouseUp += TitleBarMouseUp;
-
-                // special title resizing for CleanWindow title
-                if (titleBar.GetType() == typeof(Grid))
-                {
-                    SizeChanged += MetroWindow_SizeChanged;
-                }
-            }
-            else
-            {
-                // handle mouse events for windows without PART_WindowTitleBackground or PART_TitleBar
-                MouseDown += TitleBarMouseDown;
-                MouseUp += TitleBarMouseUp;
+                SizeChanged += MetroWindow_SizeChanged;
             }
         }
 
@@ -892,56 +970,133 @@ namespace MahApps.Metro.Controls
             }
         }
 
-        protected void TitleBarMouseDown(object sender, MouseButtonEventArgs e)
+        private void WindowTitleThumbOnPreviewMouseLeftButtonUp(object sender, MouseButtonEventArgs e)
         {
-            // if UseNoneWindowStyle = true no movement, no maximize please
-            if (e.ChangedButton == MouseButton.Left && !this.UseNoneWindowStyle)
-            {
-                var mPoint = Mouse.GetPosition(this);
-                
-                if (IsWindowDraggable)
-                {
-                    IntPtr windowHandle = new WindowInteropHelper(this).Handle;
-                    UnsafeNativeMethods.ReleaseCapture();
-                    var wpfPoint = this.PointToScreen(mPoint);
-                    var x = Convert.ToInt16(wpfPoint.X);
-                    var y = Convert.ToInt16(wpfPoint.Y);
-                    var lParam = (int) (uint) x | (y << 16);
-                    UnsafeNativeMethods.SendMessage(windowHandle, Constants.WM_NCLBUTTONDOWN, Constants.HT_CAPTION, lParam);
-                }
+            DoWindowTitleThumbOnPreviewMouseLeftButtonUp(this, e);
+        }
 
-                var canResize = this.ResizeMode == ResizeMode.CanResizeWithGrip || this.ResizeMode == ResizeMode.CanResize;
-                // we can maximize or restore the window if the title bar height is set (also if title bar is hidden)
-                var isMouseOnTitlebar = mPoint.Y <= this.TitlebarHeight && this.TitlebarHeight > 0;
-                if (e.ClickCount == 2 && canResize && isMouseOnTitlebar)
+        private void WindowTitleThumbMoveOnDragDelta(object sender, DragDeltaEventArgs dragDeltaEventArgs)
+        {
+            DoWindowTitleThumbMoveOnDragDelta(this, dragDeltaEventArgs);
+        }
+
+        private void WindowTitleThumbChangeWindowStateOnMouseDoubleClick(object sender, MouseButtonEventArgs mouseButtonEventArgs)
+        {
+            DoWindowTitleThumbChangeWindowStateOnMouseDoubleClick(this, mouseButtonEventArgs);
+        }
+
+        private void WindowTitleThumbSystemMenuOnMouseRightButtonUp(object sender, MouseButtonEventArgs e)
+        {
+            DoWindowTitleThumbSystemMenuOnMouseRightButtonUp(this, e);
+        }
+
+        internal static void DoWindowTitleThumbOnPreviewMouseLeftButtonUp(MetroWindow window, MouseButtonEventArgs mouseButtonEventArgs)
+        {
+            Mouse.Capture(null);
+        }
+
+        internal static void DoWindowTitleThumbMoveOnDragDelta(MetroWindow window, DragDeltaEventArgs dragDeltaEventArgs)
+        {
+            // drag only if IsWindowDraggable is set to true
+            if (!window.IsWindowDraggable ||
+                (!(Math.Abs(dragDeltaEventArgs.HorizontalChange) > 2) && !(Math.Abs(dragDeltaEventArgs.VerticalChange) > 2)))
+            {
+                return;
+            }
+
+            // tage from DragMove internal code
+            window.VerifyAccess();
+
+            var cursorPos = Standard.NativeMethods.GetCursorPos();
+
+            // if the window is maximized dragging is only allowed on title bar (also if not visible)
+            var windowIsMaximized = window.WindowState == WindowState.Maximized;
+            var isMouseOnTitlebar = Mouse.GetPosition(window.windowTitleThumb).Y <= window.TitlebarHeight && window.TitlebarHeight > 0;
+            if (!isMouseOnTitlebar && windowIsMaximized)
+            {
+                return;
+            }
+
+            // for the touch usage
+            UnsafeNativeMethods.ReleaseCapture();
+
+            if (windowIsMaximized) {
+                window.Top = 2;
+                window.Left = Math.Max(cursorPos.x - window.RestoreBounds.Width / 2, 0);
+                EventHandler windowOnStateChanged = null;
+                windowOnStateChanged = (sender, args) =>
                 {
-                    if (this.WindowState == WindowState.Maximized)
+                    window.StateChanged -= windowOnStateChanged;
+                    if (window.WindowState == WindowState.Normal)
                     {
-                        Microsoft.Windows.Shell.SystemCommands.RestoreWindow(this);
+                        Mouse.Capture(window.windowTitleThumb, CaptureMode.Element);
+                    }
+                };
+                window.StateChanged += windowOnStateChanged;
+            }
+
+            var criticalHandle = window.CriticalHandle;
+            // DragMove works too
+            // window.DragMove();
+            // instead this 2 lines
+            Standard.NativeMethods.SendMessage(criticalHandle, Standard.WM.SYSCOMMAND, (IntPtr)Standard.SC.MOUSEMOVE, IntPtr.Zero);
+            Standard.NativeMethods.SendMessage(criticalHandle, Standard.WM.LBUTTONUP, IntPtr.Zero, IntPtr.Zero);
+        }
+
+        internal static void DoWindowTitleThumbChangeWindowStateOnMouseDoubleClick(MetroWindow window, MouseButtonEventArgs mouseButtonEventArgs)
+        {
+            // restore/maximize only with left button
+            if (mouseButtonEventArgs.ChangedButton == MouseButton.Left)
+            {
+                // we can maximize or restore the window if the title bar height is set (also if title bar is hidden)
+                var canResize = window.ResizeMode == ResizeMode.CanResizeWithGrip || window.ResizeMode == ResizeMode.CanResize;
+                var mousePos = Mouse.GetPosition(window);
+                var isMouseOnTitlebar = mousePos.Y <= window.TitlebarHeight && window.TitlebarHeight > 0;
+                if (canResize && isMouseOnTitlebar)
+                {
+                    if (window.WindowState == WindowState.Maximized)
+                    {
+                        Microsoft.Windows.Shell.SystemCommands.RestoreWindow(window);
                     }
                     else
                     {
-                        Microsoft.Windows.Shell.SystemCommands.MaximizeWindow(this);
+                        Microsoft.Windows.Shell.SystemCommands.MaximizeWindow(window);
                     }
+                    mouseButtonEventArgs.Handled = true;
                 }
             }
         }
 
-        protected void TitleBarMouseUp(object sender, MouseButtonEventArgs e)
+        internal static void DoWindowTitleThumbSystemMenuOnMouseRightButtonUp(MetroWindow window, MouseButtonEventArgs e)
         {
-            if (ShowSystemMenuOnRightClick)
+            if (window.ShowSystemMenuOnRightClick)
             {
-                var mousePosition = e.GetPosition(this);
-                if (e.ChangedButton == MouseButton.Right && (UseNoneWindowStyle || mousePosition.Y <= TitlebarHeight))
+                // show menu only if mouse pos is on title bar or if we have a window with none style and no title bar
+                var mousePos = e.GetPosition(window);
+                if ((mousePos.Y <= window.TitlebarHeight && window.TitlebarHeight > 0) || (window.UseNoneWindowStyle && window.TitlebarHeight <= 0))
                 {
-                    ShowSystemMenuPhysicalCoordinates(this, PointToScreen(mousePosition));
+                    ShowSystemMenuPhysicalCoordinates(window, window.PointToScreen(mousePos));
                 }
             }
         }
 
+        /// <summary>
+        /// Gets the template child with the given name.
+        /// </summary>
+        /// <typeparam name="T">The interface type inheirted from DependencyObject.</typeparam>
+        /// <param name="name">The name of the template child.</param>
         internal T GetPart<T>(string name) where T : DependencyObject
         {
             return GetTemplateChild(name) as T;
+        }
+
+        /// <summary>
+        /// Gets the template child with the given name.
+        /// </summary>
+        /// <param name="name">The name of the template child.</param>
+        internal DependencyObject GetPart(string name)
+        {
+            return GetTemplateChild(name);
         }
 
         private static void ShowSystemMenuPhysicalCoordinates(Window window, Point physicalScreenLocation)
@@ -954,7 +1109,7 @@ namespace MahApps.Metro.Controls
 
             var hmenu = UnsafeNativeMethods.GetSystemMenu(hwnd, false);
 
-            var cmd = UnsafeNativeMethods.TrackPopupMenuEx(hmenu, Constants.TPM_LEFTBUTTON | Constants.TPM_RETURNCMD, 
+            var cmd = UnsafeNativeMethods.TrackPopupMenuEx(hmenu, Constants.TPM_LEFTBUTTON | Constants.TPM_RETURNCMD,
                 (int)physicalScreenLocation.X, (int)physicalScreenLocation.Y, hwnd, IntPtr.Zero);
             if (0 != cmd)
                 UnsafeNativeMethods.PostMessage(hwnd, Constants.SYSCOMMAND, new IntPtr(cmd), IntPtr.Zero);
@@ -969,10 +1124,10 @@ namespace MahApps.Metro.Controls
                 var zIndex = flyout.IsOpen ? Panel.GetZIndex(flyout) + 3 : visibleFlyouts.Count() + 2;
 
                 // Note: ShowWindowCommandsOnTop is here for backwards compatibility reasons
-                //if the the corresponding behavior has the right flag, set the window commands' and icon zIndex to a number that is higher than the flyout's. 
+                //if the the corresponding behavior has the right flag, set the window commands' and icon zIndex to a number that is higher than the flyout's.
                 if (icon != null)
                 {
-                    icon.SetValue(Panel.ZIndexProperty, 
+                    icon.SetValue(Panel.ZIndexProperty,
                         this.IconOverlayBehavior.HasFlag(WindowCommandsOverlayBehavior.Flyouts) ? zIndex : 1);
                 }
 

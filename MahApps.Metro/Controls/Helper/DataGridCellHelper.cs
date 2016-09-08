@@ -4,6 +4,8 @@ using System.Windows.Controls;
 
 namespace MahApps.Metro.Controls
 {
+    using System.ComponentModel;
+
     public class DataGridCellHelper
     {
         public static readonly DependencyProperty SaveDataGridProperty =
@@ -17,17 +19,26 @@ namespace MahApps.Metro.Controls
             var cell = dependencyObject as DataGridCell;
             if (cell != null && e.NewValue != e.OldValue && e.NewValue is bool)
             {
+                cell.Loaded -= DataGridCellLoaded;
                 cell.Unloaded -= DataGridCellUnloaded;
-                var dataGrid = cell.TryFindParent<DataGrid>();
+                DataGrid dataGrid = null;
                 if ((bool)e.NewValue)
                 {
+                    dataGrid = cell.TryFindParent<DataGrid>();
+                    cell.Loaded += DataGridCellLoaded;
                     cell.Unloaded += DataGridCellUnloaded;
-                    SetDataGrid(cell, dataGrid);
                 }
-                else
-                {
-                    SetDataGrid(cell, null);
-                }
+                SetDataGrid(cell, dataGrid);
+            }
+        }
+
+        static void DataGridCellLoaded(object sender, RoutedEventArgs e)
+        {
+            var cell = (DataGridCell)sender;
+            if (GetDataGrid(cell) == null)
+            {
+                var dataGrid = cell.TryFindParent<DataGrid>();
+                SetDataGrid(cell, dataGrid);
             }
         }
 
@@ -39,6 +50,7 @@ namespace MahApps.Metro.Controls
         /// <summary>
         /// Save the DataGrid.
         /// </summary>
+        [Category(AppName.MahApps)]
         [AttachedPropertyBrowsableForType(typeof(DataGridCell))]
         public static bool GetSaveDataGrid(UIElement element)
         {
@@ -57,6 +69,7 @@ namespace MahApps.Metro.Controls
         /// <summary>
         /// Get the DataGrid.
         /// </summary>
+        [Category(AppName.MahApps)]
         [AttachedPropertyBrowsableForType(typeof(DataGridCell))]
         public static DataGrid GetDataGrid(UIElement element)
         {
